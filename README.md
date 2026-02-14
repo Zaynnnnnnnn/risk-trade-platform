@@ -58,22 +58,24 @@ A small internal-tool style UI:
 
 ## Architecture (high level)
 
+```text
 Dashboard UI
-|
-v
+  |
+  v
 FastAPI API Layer
-/trades -> pre-trade risk + limits -> Postgres
-/risk -> portfolio DV01 summary
-/risk-runs -> persisted snapshot reports
-|
-v
+  - POST /trades       -> pre-trade risk + limits -> Postgres
+  - GET  /api/summary  -> portfolio DV01 summary
+  - POST /risk-runs    -> persist snapshot
+  - GET  /risk-runs    -> list snapshots
+  |
+  v
 Postgres
-trades
-events (audit log)
-risk_runs (snapshots)
+  - trades
+  - events (audit log)
+  - risk_runs (snapshots)
 
---
-
+#### Replace “Running locally (Docker)” with this
+```md
 ## Running locally (Docker)
 
 ### 1) Start
@@ -86,17 +88,16 @@ API docs (Swagger): http://127.0.0.1:8000/docs
 
 3) Stop
 docker compose down
-If you want a clean database reset:
-
+Reset database (optional)
 docker compose down -v
 docker compose up --build
-Quick demo script (what to show in interviews)
-Submit a small trade (PASS)
 
-Submit a large trade (BLOCK) → show reason codes
+#### Add this “Demo script” section (super valuable)
+```md
+## Demo script (2 minutes)
 
-Open “Latest audit events” and click the BLOCK row → show full payload
-
-Run “Risk Snapshot” → show it appears in “Last runs”
-
-Open a stored run by ID → show reproducible report
+1) Submit a small trade → PASS  
+2) Submit a large trade → BLOCK (reason codes)  
+3) Click the BLOCK audit event row → view full JSON payload  
+4) Run “Risk Snapshot” → appears in “Last runs”  
+5) Open a stored run by ID → shows reproducible report  
