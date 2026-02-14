@@ -1,7 +1,3 @@
-You’re right to worry about tone here. The content is good, but the phrasing is a bit too “perfect” and reads like it was generated. Let’s make it sound like something an engineer actually wrote after building the thing.
-
-Here’s a revised version that keeps the meaning but feels more natural and grounded.
-
 Risk & Trade Platform (Pre-Trade Controls + DV01 Risk)
 
 This project is a small trade capture and pre-trade risk service inspired by how sell-side control systems work.
