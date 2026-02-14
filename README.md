@@ -56,48 +56,29 @@ A small internal-tool style UI:
 
 ---
 
-## Architecture (high level)
+Architecture (high level)
 
-```text
-Dashboard UI
-  |
-  v
-FastAPI API Layer
-  - POST /trades       -> pre-trade risk + limits -> Postgres
-  - GET  /api/summary  -> portfolio DV01 summary
-  - POST /risk-runs    -> persist snapshot
-  - GET  /risk-runs    -> list snapshots
-  |
-  v
-Postgres
-  - trades
-  - events (audit log)
-  - risk_runs (snapshots)
+The system is structured as a small, self-contained service that mirrors how pre-trade controls are typically implemented in a trading environment.
 
-#### Replace “Running locally (Docker)” with this
-```md
-## Running locally (Docker)
+A lightweight dashboard acts as the operator interface.
+It allows a user to submit trades, inspect decisions, and trigger risk snapshots, but it contains no business logic — it only calls the API.
 
-### 1) Start
-```bash
-docker compose up --build
-2) Open
-Dashboard: http://127.0.0.1:8000/
+The FastAPI application is the core of the system.
+It exposes endpoints for trade submission, portfolio summaries, and risk snapshot generation.
+When a trade is received, it is passed through a risk evaluation layer that calculates DV01 impact and checks configured limits before any persistence occurs.
 
-API docs (Swagger): http://127.0.0.1:8000/docs
+The risk and controls logic is intentionally separated from the API layer.
+This makes the decision process deterministic and testable, similar to how real control services isolate risk calculations from transport concerns.
 
-3) Stop
-docker compose down
-Reset database (optional)
-docker compose down -v
-docker compose up --build
+PostgreSQL is used as the system of record.
+It stores:
 
-#### Add this “Demo script” section (super valuable)
-```md
-## Demo script (2 minutes)
+accepted trades,
 
-1) Submit a small trade → PASS  
-2) Submit a large trade → BLOCK (reason codes)  
-3) Click the BLOCK audit event row → view full JSON payload  
-4) Run “Risk Snapshot” → appears in “Last runs”  
-5) Open a stored run by ID → shows reproducible report  
+an immutable event log capturing every evaluation (including blocked trades),
+
+and persisted risk runs that represent point-in-time portfolio states.
+
+Risk snapshots are written as their own entities so reports can be reproduced later without recalculating against changed data, which reflects how end-of-day or intraday risk cycles are handled operationally.
+
+The entire stack runs inside Docker containers to ensure the environment is reproducible and can be started with a single command, similar to how internal services are packaged for deployment.
