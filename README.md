@@ -1,84 +1,135 @@
-# Risk & Trade Platform (Pre-Trade Controls + DV01 Risk)
+You’re right to worry about tone here. The content is good, but the phrasing is a bit too “perfect” and reads like it was generated. Let’s make it sound like something an engineer actually wrote after building the thing.
 
-A small “bank-style” trade capture + risk control service.
+Here’s a revised version that keeps the meaning but feels more natural and grounded.
 
-It accepts trades, runs **pre-trade risk checks** (DV01 + limits), and either:
-- **PASS / WARN** → stores the trade
-- **BLOCK** → rejects the trade with **reason codes** (and does **not** store it)
+Risk & Trade Platform (Pre-Trade Controls + DV01 Risk)
 
-Every decision is written to an **immutable audit log**, and the system can generate **persisted risk snapshots** to support reproducible reporting.
+This project is a small trade capture and pre-trade risk service inspired by how sell-side control systems work.
 
----
+It accepts trades, evaluates their risk impact, and decides whether they can be booked.
+If a trade breaches limits, it is rejected with clear reason codes.
+Every decision is recorded, and the system can generate point-in-time risk snapshots for reporting or investigation.
 
-## Why this exists
+The goal wasn’t to build a “toy trading app”, but to model the control layer that sits between execution and risk in real environments.
 
-In real trading environments, the hard part is not “saving a trade”.
-The hard part is:
-- consistent **risk calculations**
-- **controls** that prevent limit breaches
-- **auditability** (what happened, when, and why)
-- **reproducibility** (what did risk look like at a specific time)
+What it does
+
+At a high level, the service lets you:
+
+Submit a trade
+
+Calculate its DV01 and notional impact
+
+Check that impact against configured limits
+
+Either accept the trade or block it
+
+Record the decision in an audit trail
+
+Generate risk snapshots that can be revisited later
+
+Why build this?
+
+In practice, storing a trade is the easy part.
+The harder problems are around control and traceability:
+
+Making sure risk calculations are applied consistently
+
+Preventing trades from breaching limits before they hit the book
+
+Being able to explain exactly why a trade was allowed or rejected
+
+Reconstructing what the portfolio looked like at a given time
 
 This project is a simplified version of that workflow.
 
----
+Main pieces of functionality
+Pre-trade risk checks
 
-## Key features
+When a trade is submitted, the system calculates its DV01 and notional impact and evaluates it against per-book limits.
 
-### 1) Pre-trade risk + controls
-- Compute trade impact (DV01 + notional)
-- Evaluate against per-book limits
-- Return a decision with reason codes:
-  - `LIM_TRADE_NOTIONAL_EXCEEDED`
-  - `LIM_BOOK_DV01_EXCEEDED`
+It returns a structured decision:
 
-### 2) Audit event log (immutable trail)
-Every evaluation is recorded as an event:
-- `TRADE_EVALUATED`
-- `TRADE_CREATED`
+PASS – trade is accepted
 
-Blocked trades are also logged (important for traceability).
+WARN – trade is allowed but flagged
 
-### 3) Risk snapshots (reproducible runs)
-Create a persisted point-in-time risk report:
-- `POST /risk-runs?book=RATES`
-- `GET /risk-runs?book=RATES` (list)
-- `GET /risk-runs/{run_id}` (retrieve)
+BLOCK – trade is rejected
 
-This mirrors intraday / end-of-day risk runs in institutional workflows.
+Blocked trades include reason codes such as:
 
-### 4) Operator-friendly dashboard
-A small internal-tool style UI:
-- submit trade
-- see decision + reasons
-- view latest audit events (click row for full payload)
-- run risk snapshots + browse last runs
+LIM_TRADE_NOTIONAL_EXCEEDED
 
----
+LIM_BOOK_DV01_EXCEEDED
 
-Architecture (high level)
+Blocked trades are intentionally not stored, but they are still logged for traceability.
 
-The system is structured as a small, self-contained service that mirrors how pre-trade controls are typically implemented in a trading environment.
+Immutable audit trail
 
-A lightweight dashboard acts as the operator interface.
-It allows a user to submit trades, inspect decisions, and trigger risk snapshots, but it contains no business logic — it only calls the API.
+Every evaluation is written as an event.
 
-The FastAPI application is the core of the system.
-It exposes endpoints for trade submission, portfolio summaries, and risk snapshot generation.
-When a trade is received, it is passed through a risk evaluation layer that calculates DV01 impact and checks configured limits before any persistence occurs.
+Typical events include:
 
-The risk and controls logic is intentionally separated from the API layer.
-This makes the decision process deterministic and testable, similar to how real control services isolate risk calculations from transport concerns.
+TRADE_EVALUATED
 
-PostgreSQL is used as the system of record.
-It stores:
+TRADE_CREATED
 
-accepted trades,
+This creates a simple but reliable history of what the system decided and when it decided it.
 
-an immutable event log capturing every evaluation (including blocked trades),
+Risk snapshots
 
-and persisted risk runs that represent point-in-time portfolio states.
+The service can generate a persisted snapshot of portfolio risk at a specific moment.
 
-Risk snapshots are written as their own entities so reports can be reproduced later without recalculating against changed data, which reflects how end-of-day or intraday risk cycles are handled operationally.
+These runs are stored so they can be retrieved later without recalculating against updated data.
+That mirrors how intraday or end-of-day risk runs are handled operationally.
 
-The entire stack runs inside Docker containers to ensure the environment is reproducible and can be started with a single command, similar to how internal services are packaged for deployment.
+Endpoints:
+
+POST /risk-runs?book=RATES → create a snapshot
+
+GET /risk-runs?book=RATES → list runs
+
+GET /risk-runs/{run_id} → retrieve a specific run
+
+Lightweight internal dashboard
+
+There’s also a small UI intended to feel like an internal tool rather than a product:
+
+Submit trades
+
+See decisions and reason codes
+
+View recent audit events
+
+Trigger and browse risk snapshots
+
+The UI contains no business logic — it just calls the API.
+
+Architecture overview
+
+The system is structured as a single service with clear separation between transport, risk logic, and persistence.
+
+The FastAPI layer handles request routing and validation but does not contain risk calculations.
+Trades are passed into a dedicated evaluation layer where DV01 is computed and limits are enforced.
+
+Keeping that logic separate makes the decision process deterministic and easier to test, which is how control services are typically structured.
+
+PostgreSQL acts as the system of record. It stores:
+
+Accepted trades
+
+The immutable audit log of evaluations
+
+Persisted risk snapshot results
+
+Snapshots are stored as their own entities so reports can be reproduced later without recalculating against changed data.
+
+Everything runs in Docker so the full stack can be started reproducibly with a single command.
+
+Running locally
+docker compose up --build
+
+
+Then open:
+
+http://127.0.0.1:8000
