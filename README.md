@@ -125,7 +125,27 @@ Everything runs in Docker so the full stack can be started reproducibly with a s
 Running locally
 docker compose up --build
 
-
 Then open:
-
 http://127.0.0.1:8000
+
+## Business Context
+
+This project simulates a pre-trade risk gateway similar to those used in
+institutional execution systems.
+
+Before an order reaches the market, it must pass:
+• Exposure checks
+• Instrument-level limits
+• Portfolio risk constraints
+• Audit logging for regulatory traceability
+
+Client Order
+    ↓
+Risk Engine
+    ↓
+Validation Layer ──→ Reject (limit breach)
+    ↓
+Approval
+    ↓
+Audit Logger → Immutable record
+
